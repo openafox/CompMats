@@ -1,0 +1,38 @@
+# Minimize the structure of a Cu unit cell using the EAM potential
+
+units           metal
+boundary        p p p
+box         tilt large
+
+atom_style      atomic
+read_data       data.Cu-unit-stretched
+#replicate      3 3 3
+
+## uncomment this section  to use the EAM potential for Cu
+## the parameters for the EAM potental are defined in the file Cu_u3.eam
+##
+pair_style      eam
+pair_coeff      * *  Cu_u3.eam
+
+# uncomment this section to use the morse potential
+# the parameters for the morse potential are:
+#  epsilon (bond energy in eV)
+#  alpha (in 1/Ang.)
+#  Ro (in Ang)
+#  cutoff distance in (Ang) 
+#
+#pair_style      morse 2.5
+#pair_coeff      * * 0.1075 2.0 2.55 3.5
+
+
+neighbor        0.3 bin
+neigh_modify    delay 10
+
+thermo          1
+timestep        0.0001
+
+#dump           1 all custom 1 force.dump
+dump            dumpxyz all xyz 1 xmol.xyz
+dump_modify     dumpxyz element Cu
+
+minimize        1.0e-8 1.0e-10 10000 100000

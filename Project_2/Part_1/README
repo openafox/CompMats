@@ -1,0 +1,8 @@
+To strain the data file use strain.py
+This is a standalone script that takes the desired
+strain (as a reduced strain tensor) written as a single string 
+in quotes.
+
+for example:
+
+strain.py "0 0 0 0.1 0.1 0.1"

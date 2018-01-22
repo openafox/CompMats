@@ -1,0 +1,55 @@
+LAMMPS (10 Feb 2015)
+# (written by ASE)
+clear
+variable dump_file string "/Users/austinfox/Google_Drive/_CompSciCourse/Final_Proj/Examples/trj_lammps000001qCxCst"
+variable data_file string "/Users/austinfox/Google_Drive/_CompSciCourse/Final_Proj/Examples/data_lammps000001hB3WqR"
+units metal
+boundary p p p
+atom_modify sort 0 0.0
+
+read_data /Users/austinfox/Google_Drive/_CompSciCourse/Final_Proj/Examples/data_lammps000001hB3WqR
+  orthogonal box = (0 0 0) to (6.5 6.5 7.7)
+  1 by 1 by 1 MPI processor grid
+  reading atoms ...
+  2 atoms
+
+### interactions
+pair_style lj/cut 2.5
+pair_coeff * * 1 1
+mass * 1.0
+
+### run
+fix fix_nve all nve
+dump dump_all all custom 1 /Users/austinfox/Google_Drive/_CompSciCourse/Final_Proj/Examples/trj_lammps000001qCxCst id type x y z vx vy vz fx fy fz
+thermo_style custom step temp press cpu pxx pyy pzz pxy pxz pyz ke pe etotal vol lx ly lz atoms
+thermo_modify flush yes
+thermo 1
+run 0
+Neighbor list info ...
+  1 neighbor list requests
+  update every 1 steps, delay 10 steps, check yes
+  master list distance cutoff = 4.5
+Memory usage per processor = 3.11071 Mbytes
+Step Temp Press CPU Pxx Pyy Pzz Pxy Pxz Pyz KinEng PotEng TotEng Volume Lx Ly Lz Atoms 
+       0            0   -224.94759            0            0            0   -674.84277            0            0            0            0 -0.022971479 -0.022971479      325.325          6.5          6.5          7.7        2 
+Loop time of 0 on 1 procs for 0 steps with 2 atoms
+
+Pair  time (%) = 0 (0)
+Neigh time (%) = 0 (0)
+Comm  time (%) = 0 (0)
+Outpt time (%) = 0 (0)
+Other time (%) = 0 (0)
+
+Nlocal:    2 ave 2 max 2 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    14 ave 14 max 14 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    1 ave 1 max 1 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 1
+Ave neighs/atom = 0.5
+Neighbor list builds = 0
+Dangerous builds = 0
+print "__end_of_ase_invoked_calculation__"
+__end_of_ase_invoked_calculation__

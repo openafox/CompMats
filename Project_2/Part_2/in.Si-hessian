@@ -1,0 +1,68 @@
+# A script to try  making a box of Si
+
+boundary        p p p
+units           metal   # 'metal' unit must be used.
+echo            screen
+
+lattice         diamond 5.43
+region          all block 0.0 3 0.0 3 0.0 3
+create_box      1 all
+create_atoms    1 region all
+
+mass            1 28.0
+
+pair_style 	tersoff
+pair_coeff	* * Si.tersoff Si
+
+thermo_style	custom step etotal pe ke temp       
+thermo		1
+
+minimize	1e-12 1e-16 100 1000 
+
+#dump            dump1 all xyz 1 test.xyz
+#write_restart	Si_3x3x3.restart
+write_data	data.Si-3x3x3 
+  
+variable	nat equal count(all)
+variable 	delta equal 0.01
+
+#variable 	Hx atom fx/sqrt(mass*mass)
+#variable 	Hx atom fy/sqrt(mass*mass)
+#variable 	Hx atom fz/sqrt(mass*mass)
+dump            FM all custom 1 dump.forces id fx fy fz
+#dump            FM all custom 1 dump.forces id x y z v_Hx v_Hy v_Hz
+dump_modify	FM sort id
+#fix		NVE all nve
+
+run             0
+
+label		loop
+variable 	atom loop ${nat}
+	print 	"Moving atom = ${atom}"
+	group  		move id ${atom}	
+	displace_atoms 	move move ${delta} 0  0 units box        # Displace atom by delta along +x
+	run             1
+        displace_atoms   move move -${delta} 0  0 units box       # Displace atom by delta along -x 
+	displace_atoms   move move -${delta} 0  0 units box
+        run             1
+        displace_atoms   move move ${delta} ${delta} 0 units box  # Displace atom by delta along +y
+ 	run             1
+        displace_atoms   move move 0 -${delta} 0 units box        # Displace atom by delta along -x
+        displace_atoms   move move 0 -${delta} 0 units box
+        run             1
+        displace_atoms   move move 0 ${delta} ${delta} units box  # Displace atom by delta along +z
+        run             1
+        displace_atoms   move move 0 0 -${delta} units box        # Displace atom by delta along -x
+        displace_atoms   move move 0 0 -${delta} units box
+        run             1
+        displace_atoms   move move 0 0 ${delta} units box         # Put the atom back 
+
+	group		move delete
+	if 		"${atom} == ${nat}" then "jump in.Si-hessian break"
+	next		atom
+	jump 		in.Si-hessian loop
+label	break
+variable	atom delete 
+undump	FM
+
+

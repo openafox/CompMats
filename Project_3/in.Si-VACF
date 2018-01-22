@@ -1,0 +1,151 @@
+# A lammps instruction script for Lab-08: This will perform simulations 
+# on a box of Si modeled using the Tersoff potential
+
+echo            both 		# Print command to the log file (useful for debuging) 
+boundary        p p p		# Use periodic BCs in all directions	
+units           metal           # The Tersoff petential uses 'metal' units
+
+#########################################################
+#	Define Simulation Parameters (CHANGE THESE)
+
+#variable        dt equal 1.0e-3	     # Time step
+variable	Temp equal 300       # Maximum heating temperature K 
+variable	HeatTime equal 50    # Heating time (ps)
+variable	VACFTime equal 100   # Heating time (ps)
+variable 	rep equal 3          # Number of unit cells in each direction 
+
+variable	ReadFlag equal 1     # 1 if reading datafile, 
+			     	     # 0 if defining atoms from scratch
+variable 	inputdatafile string data.Si-equilibrated-${Temp}K
+
+variable        Nmovie  equal 100    # Movie output frequency (frames)
+variable        Nthermo equal 10     # Thermo output frequency (frames)
+
+#########################################################
+#	Axuiliary parameters (DON'T CHANGE THESE)
+
+variable        Nheat equal floor(${HeatTime}/${dt})
+variable        NVACF equal floor(${VACFTime}/${dt})
+variable        T2 equal ${Temp}*2
+variable 	SEED equal 1234567
+variable 	Tdrag equal ${dt}*100
+variable 	Pdrag equal ${dt}*1000
+variable 	Nequilibrate equal floor(50/${dt})
+
+#########################################################
+#	Define the computational  cell and the atomic structure
+#
+
+timestep    ${dt}
+
+if "${ReadFlag} == 1" then "jump in.Si-VACF READ"
+
+   # if reading creating a data file
+   lattice         diamond 5.43
+   region          all block 0.0 ${rep} 0.0 ${rep} 0.0 ${rep} # rep x rep x rep unit cells so rep x rep x rep x 8 atoms  
+   create_box      1 all
+   create_atoms    1 region all 
+   # Define the mass of the atoms
+   mass            1 28.0  	# in atomic mass units
+   jump		   in.Si-VACF POTENTIAL
+
+   # Else reading an already created data file
+   label	    READ
+   read_data    	${inputdatafile}
+
+#########################################################
+#       Define interatomic potential: 
+#       We will use the Tersoff potential for Si
+#
+label		POTENTIAL
+pair_style 	tersoff
+pair_coeff	* * Si.tersoff Si
+
+#########################################################
+#	Define what thermodynamic and ensemble averaged data we would like
+# 	LAMMPS to print out.
+#
+thermo_style	custom step time etotal pe ke temp vol press       
+thermo		${Nthermo}
+thermo_modify   format float %10.7e # change the format of the floats to include 
+		       	     	     # lots of significant figures
+
+#########################################################
+#	Define what per atom data we would like LAMMPS to record 
+#	during the simulation
+#
+dump            dump1 all xyz ${Nmovie} test.xyz
+dump_modify	dump1 element Si
+#dump_image	dump2 all image ${Nmovie} dump.*.jpg type type 
+
+######################################################### 
+#               BEGIN SIMULATION
+#	
+#	Section - 1 - preparing a system and setting the time step
+#
+#       Relax the system (find minimum energy atomic coordinates)
+#	then heat the box to 300K, give the system some time in the 
+#	microcannonical enssemble (NVE) to let the energy spread out 
+#	amongst the vibrational mode. Then look at the the fluctuations 
+# 	and drift in the total energy.
+
+if "${ReadFlag} == 1" then "jump in.Si-VACF EQUILIBRATED"
+   thermo		0
+   minimize	1.0e-8 1.0e-10 1000 10000
+
+   # To heat the system up  we will give all the atoms an initiall random velocity. 
+   # We just removed the potential energy from the system, thus to heat it to 300 K 
+   # we need to give the atoms a velocity equivilent to an instantaniouse temperature 
+   # of 600 K. As we equilibrate the system approximately half of this will end up 
+   # as potential energy. We will asigne random velocities drawn from a gausian 
+   # distribution, and we will ensure that the net translational and rotational momentum 
+   # of the system is zero.
+
+   velocity	all create ${T2} ${SEED} dist gaussian rot yes mom yes
+   fix		thermostat all nve  
+   run          ${Nequilibrate}
+   unfix		thermostat
+   reset_timestep 	0
+
+   write_data	data.Si-equilibrated-${Temp}K
+#   
+label		EQUILIBRATED
+
+thermo		${Nthermo}
+fix		thermostat all nve
+run             ${Nheat}
+unfix		thermostat
+
+quit
+
+#	Section - 2 - Lyapunov stability
+#
+#	Once you have chosen a good time step size, perform asimulation to
+#       prepare a system at 300 K and then wcreate an output data file
+
+dump         d2 all custom 1000 pv-FD.d id x y z vx vy vz
+dump_modify  d2 format "%4d %15.12e %15.12e %15.12e %15.12e %15.12e %15.12e"
+dump_modify  d2 sort id  # Print out the coordinates in order
+
+fix		thermostat all nve  
+run             ${Nheat}
+unfix		thermostat
+undump		DUMP
+
+quit
+
+#	Section - 3 - VACF
+#
+#	Starting with a well prepared Si system at 300K, simulate in 
+#	the NVE enssemble and compute the velosity autocorrelation function. 
+#	You will take the cosine Fourrier transform of this and use it compute 
+#	the vibrational spectrum
+
+thermo		${Nthermo}
+compute         vacf all vacf
+fix             VACF all ave/time 1 1 1 c_vacf[2] c_vacf[3] c_vacf[4] file vacf.d
+fix		thermostat all nve  
+run             ${NVACF}
+unfix		thermostat
+
+quit
